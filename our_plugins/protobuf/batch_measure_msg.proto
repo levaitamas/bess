@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package bess.pb;
+
+/**
+ * The BatchMeasure extends the Measure module by moving average calculation of batch occupancy.
+ *
+ * __Input Gates__: 1
+ * __Output Gates__: 1
+ */
+message BatchMeasureArg {
+  uint64 offset = 2; /// Where to store the current time within the packet, offset in bytes.
+  double jitter_sample_prob = 3; /// How often the module should sample packets for inter-packet arrival measurements (to measure jitter).
+  uint64 latency_ns_max = 4; /// maximum latency expected, in ns (default 0.1 s)
+  uint32 latency_ns_resolution = 5; /// resolution, in ns (default 100)
+  double batch_resolution = 6; /// batch histogram resolution (default: 1e-4)
+  uint32 batch_size = 7; /// # of packets in a single batch (default: BESS default batch size)
+}
+
+
+/**
+ * The BatchMeasure module measures and collects data similarly to Measure.
+ */
+message BatchMeasureCommandGetSummaryArg {
+  bool clear = 1; /// if true, the data will be all cleared after read
+  repeated double latency_percentiles = 2; /// ascending list of real numbers in [0.0, 100.0]
+  repeated double jitter_percentiles = 3; /// ascending list of real numbers in [0.0, 100.0]
+  repeated double batch_percentiles = 4; /// ascending list of real numbers in [0.0, 100.0]
+}
+
+/**
+ * The BatchMeasure module function `get_summary()` returns the following values.
+ */
+message BatchMeasureCommandGetSummaryResponse {
+  message Histogram {
+    uint64 count = 1; /// Total # of measured data points, including above_range
+    uint64 above_range = 2; /// # of data points for the "too large value" bucket
+    uint64 resolution_ns = 8; /// resolution of measured data
+    uint64 min_ns = 3;
+    uint64 avg_ns = 4;
+    uint64 max_ns = 5;
+    uint64 total_ns = 6;
+    repeated uint64 percentile_values_ns = 7;
+  }
+  message BatchHistogram {
+    uint64 count = 1; /// Total # of measured data points, including above_range
+    uint64 above_range = 2; /// # of data points for the "too large value" bucket
+    double resolution = 8; /// resolution of measured data
+    double min = 3;
+    double avg = 4;
+    double max = 5;
+    double total = 6;
+    repeated double percentile_values = 7;
+  }
+  double timestamp = 1; /// Seconds since boot.
+  uint64 packets = 2; /// Total # of packets seen by this module.
+  uint64 bits = 3; /// Total # of bits seen by this module.
+  Histogram latency = 4;
+  Histogram jitter = 5;
+  BatchHistogram batch = 6;
+}
