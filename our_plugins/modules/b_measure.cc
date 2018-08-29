@@ -208,7 +208,7 @@ void BatchMeasure::Clear() {
   mcs_lock(&lock_, &mynode);
   pkt_cnt_ = 0;
   bytes_cnt_ = 0;
-  batch_hist_ = std::move(new_batch_hist);;
+  batch_hist_ = std::move(new_batch_hist);
   rtt_hist_ = std::move(new_rtt_hist);
   jitter_hist_ = std::move(new_jitter_hist);
   mcs_unlock(&lock_, &mynode);
