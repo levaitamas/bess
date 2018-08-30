@@ -41,8 +41,8 @@ const Commands FractionalBuffer::cmds = {
 CommandResponse
 FractionalBuffer::Init(const bess::pb::FractionalBufferArg &arg) {
   size_ = arg.size();
-  if (size_ < 1 || size_ > bess::PacketBatch::kMaxBurst) {
-    return CommandFailure(EINVAL, "'size' must be 1-%zu",
+  if (size_ > bess::PacketBatch::kMaxBurst) {
+    return CommandFailure(EINVAL, "'size' must be 0-%zu",
                           bess::PacketBatch::kMaxBurst);
   }
   return CommandSuccess();
@@ -58,6 +58,11 @@ std::string FractionalBuffer::GetDesc() const {
 }
 
 void FractionalBuffer::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
+  if (size_ == 0) {
+    RunNextModule(ctx, batch);
+    return;
+  }
+
   bess::PacketBatch *buf = &buf_;
 
   int free_slots = size_ - buf->cnt();
@@ -87,8 +92,8 @@ void FractionalBuffer::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
 }
 
 CommandResponse FractionalBuffer::SetSize(uint32_t size) {
-  if (size_ < 1 || size_ > bess::PacketBatch::kMaxBurst) {
-    return CommandFailure(EINVAL, "'size' must be 1-%zu",
+  if (size_ > bess::PacketBatch::kMaxBurst) {
+    return CommandFailure(EINVAL, "'size' must be 0-%zu",
                           bess::PacketBatch::kMaxBurst);
   }
   size_ = size;

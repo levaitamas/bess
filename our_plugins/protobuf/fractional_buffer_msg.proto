@@ -11,14 +11,16 @@ package bess.pb;
  * __Output Gates__: 1
  */
 message FractionalBufferArg {
-  uint32 size = 1; /// Size of the buffer.
+  uint32 size = 1; /// Size of the buffer. If size=0, buffering is
+		   /// bypassed.
 }
 /**
  * FractionalBuffer has a function `set_size(...)` that allows
  * specifying the number of packets to receive before forwarding them.
  */
 message FractionalBufferCommandSetSizeArg {
-  uint32 size = 1; /// Size of the buffer.
+  uint32 size = 1; /// Size of the buffer. If size=0, buffering is
+		   /// bypassed.
 }
 /**
  * FractionalBuffer has a function `get_size()` that return a
@@ -31,5 +33,6 @@ message FractionalBufferCommandGetSizeArg {}
  * the number of packets to receive before forwarding them.
  */
 message FractionalBufferCommandGetSizeResponse {
-  uint32 size = 1; /// Size of the buffer.
+  uint32 size = 1; /// Size of the buffer. If size=0, buffering is
+		   /// bypassed.
 }
