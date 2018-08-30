@@ -87,14 +87,15 @@ static void refill_tx_bufs(struct llring *r) {
 
   deficit = REFILL_HIGH - curr_cnt;
 
-  ret = bess::Packet::Alloc((bess::Packet **)pkts, deficit, 0);
-  if (ret == 0)
+  if (!current_worker.packet_pool()->AllocBulk(pkts, deficit, 0)) {
     return;
+  }
 
-  for (int i = 0; i < ret; i++)
+  for (int i = 0; i < deficit; i++) {
     objs[i] = pkts[i]->paddr();
+  }
 
-  ret = llring_mp_enqueue_bulk(r, objs, ret);
+  ret = llring_mp_enqueue_bulk(r, objs, deficit);
   DCHECK_EQ(ret, 0);
 }
 
@@ -493,7 +494,9 @@ CommandResponse VPort::Init(const bess::pb::VPortArg &arg) {
   netns_fd_ = -1;
   container_pid_ = 0;
 
-  if (arg.ifname().length() >= IFNAMSIZ) {
+  const std::string &ifname = !arg.ifname().empty() ? arg.ifname() : name();
+
+  if (ifname.length() >= IFNAMSIZ) {
     err = CommandFailure(EINVAL,
                          "Linux interface name should be "
                          "shorter than %d characters",
@@ -501,11 +504,9 @@ CommandResponse VPort::Init(const bess::pb::VPortArg &arg) {
     goto fail;
   }
 
-  if (arg.ifname().length()) {
-    strncpy(ifname_, arg.ifname().c_str(), IFNAMSIZ);
-  } else {
-    strncpy(ifname_, name().c_str(), IFNAMSIZ);
-  }
+  static_assert(sizeof(ifname_) == IFNAMSIZ);
+  strncpy(ifname_, ifname.c_str(), IFNAMSIZ - 1);
+  ifname_[IFNAMSIZ - 1] = '\0';
 
   if (arg.cpid_case() == bess::pb::VPortArg::kDocker) {
     err = docker_container_pid(arg.docker(), &container_pid_);

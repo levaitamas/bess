@@ -54,8 +54,8 @@ CXXCOMPILER := $(shell expr $(word 1, $(shell $(CXX) --version)) : '\(clang\|g++
 CXXVERSION := $(shell $(CXX) -dumpversion)
 
 ifeq "$(CXXCOMPILER)" "g++"
-  ifneq "$(shell printf '$(CXXVERSION)\n5' | sort -V | head -n1)" "5"
-    $(error g++ 5 or higher is required. Use container_build.py if newer g++ is not available.)
+  ifneq "$(shell printf '$(CXXVERSION)\n7' | sort -V | head -n1)" "7"
+    $(error g++ 7 or higher is required. Use container_build.py if newer g++ is not available.)
   endif
 endif
 
@@ -109,7 +109,7 @@ endif
 # -MMD dependency recording (should we use -MD?).
 COREDIR := $(abspath .)
 CXXARCHFLAGS ?= -march=native
-CXXFLAGS += -std=c++14 -g3 -ggdb3 $(CXXARCHFLAGS) \
+CXXFLAGS += -std=c++17 -g3 -ggdb3 $(CXXARCHFLAGS) \
             -isystem $(DPDK_INC_DIR) -isystem $(COREDIR) \
             -isystem $(dir $<).. -isystem $(COREDIR)/modules \
             -D_GNU_SOURCE \
@@ -171,10 +171,17 @@ ifdef COVERAGE
 else ifdef DEBUG
   CXXFLAGS += -O0
 else
-  CXXFLAGS += -Ofast -DNDEBUG
+  CXXFLAGS += -O3 -DNDEBUG
 endif
 
+# Unless we explicitly specify a default goal, the first target in the
+# included .mk file below will become the default goal by surprise.
+.DEFAULT_GOAL := all
+
 -include extra*.mk
+
+# Each plugin may have their own extra Makefile snippets
+-include $(addsuffix /extra*.mk,$(PLUGINS))
 
 # Given PLUGINS (set in extra.mk), set up PROTO_PLUGINS,
 # DRIVER_PLUGINS, MODULE_PLUGINS, and UTIL_PLUGINS.  Note

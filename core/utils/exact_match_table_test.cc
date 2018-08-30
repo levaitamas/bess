@@ -32,13 +32,14 @@
 
 #include <gtest/gtest.h>
 
+#include "../packet_pool.h"
 #include "endian.h"
 
+using bess::utils::Error;
 using bess::utils::ExactMatchField;
 using bess::utils::ExactMatchKey;
 using bess::utils::ExactMatchRuleFields;
 using bess::utils::ExactMatchTable;
-using bess::utils::Error;
 
 TEST(EmTableTest, AddField) {
   ExactMatchTable<uint8_t> em;
@@ -136,7 +137,9 @@ TEST(EmTableTest, FindMakeKeysPktBatch) {
   ExactMatchRuleFields rule = {{0x04, 0x03, 0x02, 0x01}};
   ExactMatchKey keys[n];
   bess::PacketBatch batch;
-  bess::Packet pkts[n];
+  bess::PlainPacketPool pool;
+  bess::Packet *pkts[n];
+  pool.AllocBulk(pkts, n, 0);
   char databuf[32] = {0};
 
   ASSERT_EQ(0, em.AddField(0, 4, 0, 0).first);
@@ -144,19 +147,8 @@ TEST(EmTableTest, FindMakeKeysPktBatch) {
 
   batch.clear();
   for (size_t i = 0; i < n; i++) {
-    bess::Packet *pkt = &pkts[i];
-
-    // all fake packets share this one data buffer
-    pkt->set_buffer(databuf);
-    pkt->set_data_len(sizeof(databuf));
-    pkt->set_data_off(0);
-
-    // this fake packet must not be freed
-    pkt->set_refcnt(2);
-
-    // not chained
-    pkt->set_next(nullptr);
-
+    bess::Packet *pkt = pkts[i];
+    bess::utils::Copy(pkt->append(sizeof(databuf)), databuf, sizeof(databuf));
     batch.add(pkt);
   }
 
@@ -168,6 +160,4 @@ TEST(EmTableTest, FindMakeKeysPktBatch) {
     // Packets are bogus, shouldn't match anything.
     ASSERT_EQ(0xDEAD, em.Find(keys[i], 0xDEAD));
   }
-
-  bess::Packet::Free(&batch);
 }
