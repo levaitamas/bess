@@ -1,0 +1,16 @@
+syntax = "proto3";
+package dpdkacl.pb;
+
+/**
+ */
+message DPDKACLArg {
+  message Rule {
+    uint32 ipproto = 1;	  /// IP protocol (TCP or UDP)
+    string src_ip = 2;    /// Source IP block in CIDR. Wildcard if "".
+    string dst_ip = 3;    /// Destination IP block in CIDR. Wildcard if "".
+    uint32 src_port = 4;  /// TCP/UDP source port. Wildcard if 0.
+    uint32 dst_port = 5;  /// TCP/UDP Destination port. Wildcard if 0.
+    bool drop = 6;        /// Drop matched packets if true, forward if false. By default ACL drops all traffic.
+  }
+  repeated Rule rules = 1; ///A list of ACL rules.
+}
