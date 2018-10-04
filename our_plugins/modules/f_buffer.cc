@@ -58,21 +58,52 @@ std::string FractionalBuffer::GetDesc() const {
 }
 
 void FractionalBuffer::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
-  if (size_ == 0) {
+  // _size might change under us (via a SetSize() call) which may lead to a
+  // segfault in certain cases, so first we copy current size parameter, we
+  // make sure the copy actually took place by using a compiler barrier,
+  // and then we use the copy throughout the call to make sure it doesn't
+  // change behind our back
+  size_t __size = size_;
+  STORE_BARRIER();
+
+  bess::PacketBatch *buf = &buf_;
+
+  // after a set_size(0) call we need to take care of sending out the
+  // packets currently kept in the buffer, otherwise these packets would
+  // get stuck in the buffer and never get sent out
+  if(__size == 0){
+    if(unlikely(buf->cnt() > 0)){
+      bess::PacketBatch *new_batch = ctx->task->AllocPacketBatch();
+      new_batch->Copy(buf);
+      buf->clear();
+      RunNextModule(ctx, new_batch);
+    }
     RunNextModule(ctx, batch);
     return;
   }
 
-  bess::PacketBatch *buf = &buf_;
+  // For extremely small "__size" arguments it can happen that the buffer
+  // already contains more packets then the "__size", which may cause
+  // memory corruption by "free_slots" becoming negative. So first we send
+  // the buffer as is, and only after that we process the incoming
+  // batch. The fact that we send an over-sized buffer once will not be a
+  // problem as this is supposed to happen rarely (only at most once after
+  // each set_size() API call).
+  if(__size < size_t(buf->cnt())){
+    bess::PacketBatch *initial_batch = ctx->task->AllocPacketBatch();
+    initial_batch->Copy(buf);
+    buf->clear();
+    RunNextModule(ctx, initial_batch);
+  }
 
-  int free_slots = size_ - buf->cnt();
+  int free_slots = __size - buf->cnt();
   int left = batch->cnt();
 
   bess::Packet **p_buf = &buf->pkts()[buf->cnt()];
   bess::Packet **p_batch = &batch->pkts()[0];
 
   while (left >= free_slots) {
-    buf->set_cnt(size_);
+    buf->set_cnt(__size);
     bess::utils::CopyInlined(p_buf, p_batch,
                              free_slots * sizeof(bess::Packet *));
 
@@ -84,7 +115,7 @@ void FractionalBuffer::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
     new_batch->Copy(buf);
     buf->clear();
     RunNextModule(ctx, new_batch);
-    free_slots = size_;
+    free_slots = __size;
   }
 
   buf->incr_cnt(left);
