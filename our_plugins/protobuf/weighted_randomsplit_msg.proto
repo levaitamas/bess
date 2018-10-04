@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package bess.pb;
+
+/**
+ * The WeightedRandomSplit module pseudo-randomly split/drop packets
+ *
+ * __InputGates__: 1
+ * __Output Gates__: many (configurable)
+ */
+message WeightedRandomSplitArg {
+  double drop_rate = 1; /// Probability of dropping packet.
+  map<int64,double> gates_weights = 2; /// A map of gate numbers and weights
+}
+
+/**
+ * The WeightedRandomSplit module has a function `set_droprate(...)` which specifies
+ * the probability of dropping packets
+ */
+message WeightedRandomSplitCommandSetDroprateArg {
+  double drop_rate = 1; /// Probability of dropping packet.
+}
+
+/**
+ * The WeightedRandomSplit module has a function `set_gates_weights(...)` which changes
+ * the weights of output gates and the output gates in the module.
+ */
+message WeightedRandomSplitCommandSetGatesWeightsArg {
+  map<int64,double> gates_weights = 1; /// A map of gate numbers and weights
+}

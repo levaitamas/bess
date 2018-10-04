@@ -1,0 +1,12 @@
+gate_weight_dict = {
+    0: 0.125,
+    1: 0.5,
+    2: 0.25,
+    3: 0.125
+}
+
+wrs = WeightedRandomSplit(name='wrs', gates_weights=gate_weight_dict, drop_rate=0.0)
+
+Source() -> wrs
+for i in gate_weight_dict.keys():
+    wrs:i -> Sink()
