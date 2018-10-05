@@ -46,25 +46,26 @@ const Commands WeightedRandomSplit::cmds = {
 
 CommandResponse WeightedRandomSplit::Init(const bess::pb::WeightedRandomSplitArg &arg) {
   double drop_rate = arg.drop_rate();
-  std::map<gate_idx_t,double> gates_weights(arg.gates_weights().begin(),
-					    arg.gates_weights().end());
+  std::map<gate_idx_t,double> gates_weights;
+  double weights_sum = 0;
 
   if (drop_rate < 0 || drop_rate > 1) {
     return CommandFailure(EINVAL, "drop rate needs to be between [0, 1]");
   }
   drop_rate_ = drop_rate;
 
-  double weights_sum = 0;
-  for(const auto& it: arg.gates_weights()) {
-    weights_sum += it.second;
-  }
-  if (weights_sum != 1.0) {
-    return CommandFailure(EINVAL, "invalid distribution of weights, sum(weights) should be 1.");
-  }
-
   if (arg.gates_weights_size() > MAX_SPLIT_GATES) {
     return CommandFailure(EINVAL, "no more than %d gates", MAX_SPLIT_GATES);
   }
+
+  for(const auto& it: arg.gates_weights()) {
+    weights_sum += it.second;
+  }
+
+  for(auto& it: arg.gates_weights()) {
+    gates_weights[it.first] = it.second / weights_sum;
+  }
+
 
   for (const auto& it : gates_weights) {
     if (!is_valid_gate(it.first)) {
@@ -72,7 +73,7 @@ CommandResponse WeightedRandomSplit::Init(const bess::pb::WeightedRandomSplitArg
     }
   }
 
-  ngates_ = arg.gates_weights_size();
+  ngates_ = gates_weights.size();
   size_t i = 0;
   for (const auto& it : gates_weights) {
     gates_[i] = it.first;
@@ -98,20 +99,19 @@ CommandResponse WeightedRandomSplit::CommandSetDroprate(
 
 CommandResponse WeightedRandomSplit::CommandSetGatesWeights(
     const bess::pb::WeightedRandomSplitCommandSetGatesWeightsArg &arg) {
-  std::map<gate_idx_t,double> gates_weights(arg.gates_weights().begin(),
-					    arg.gates_weights().end());
-  if (gates_weights.size() > MAX_SPLIT_GATES) {
+  std::map<gate_idx_t,double> gates_weights;
+  double weights_sum = 0;
+  if (arg.gates_weights_size() > MAX_SPLIT_GATES) {
     return CommandFailure(EINVAL, "no more than %d gates", MAX_SPLIT_GATES);
   }
 
-  double weights_sum = 0;
   for(const auto& it: arg.gates_weights()) {
     weights_sum += it.second;
   }
-  if (weights_sum != 1.0) {
-    return CommandFailure(EINVAL, "invalid distribution of weights, sum(weights) should be 1.");
-  }
 
+  for(auto& it: arg.gates_weights()) {
+    gates_weights[it.first] = it.second / weights_sum;
+  }
 
   for (const auto& it : gates_weights) {
     if (!is_valid_gate(it.first)) {
@@ -128,6 +128,7 @@ CommandResponse WeightedRandomSplit::CommandSetGatesWeights(
   }
 
   vosealias_ = VoseAlias<gate_idx_t>(gates_weights);
+
   return CommandSuccess();
 }
 
