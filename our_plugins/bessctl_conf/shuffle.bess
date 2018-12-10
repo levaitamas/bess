@@ -1,0 +1,26 @@
+import scapy.all as scapy
+
+
+num_templates = int($NUM_TEMPLATES!'32')
+
+
+def gen_pkt(seq=1):
+    eth = scapy.Ether(src='02:1e:67:9f:4d:ae', dst='06:16:3e:1b:72:32')
+    dst_ip = '10.0.%d.%d' % (int(seq/254), min(seq % 254, 1))
+    ip = scapy.IP(src='10.0.0.1', dst=dst_ip)
+    udp = scapy.UDP()
+    payload = ('helloshuffle_%s' % seq)
+    pkt = eth/ip/udp/payload
+    return bytes(pkt)
+
+
+templates = [gen_pkt(i) for i in range(1, num_templates + 1)]
+
+src = Source()
+
+bess.add_tc('src_lim', wid=0,
+            policy='rate_limit',
+            resource='packet', limit={'packet': 32})
+src.attach_task('src_lim')
+
+src -> Rewrite(templates=templates) -> Shuffle() -> Sink()

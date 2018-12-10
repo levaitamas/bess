@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package bess.pb;
+
+
+/**
+ * The Shuffle module shuffles the content of incoming batches on
+ * basis of the Durstenfeld (Fisher-Yates) algorithm.
+ *
+ * __Input Gates__: 1
+ * __Output Gates__: 1
+ */
+message ShuffleArg {
+}
