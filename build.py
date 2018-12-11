@@ -243,6 +243,20 @@ def check_mlx():
         set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_LIBRTE_MLX5_PMD', 'n')
 
 
+def enable_libpcap_pmd():
+    filename = DPDK_FINAL_CONFIG
+    config = 'CONFIG_RTE_LIBRTE_PMD_PCAP'
+    with open(filename) as fp:
+        lines = fp.readlines()
+    with open(filename, 'w') as fp:
+        for line in lines:
+            if line.startswith(config + '='):
+                line = '%s=y\n' % config
+            fp.write(line)
+        else:
+            line = '%s=y\n' % config
+            fp.write(line)
+
 def generate_dpdk_extra_mk():
     with open('core/extra.dpdk.mk', 'w') as fp:
         fp.write(
@@ -293,6 +307,8 @@ def configure_dpdk():
         # override RTE_MACHINE with the one in DPDK_BASE_CONFIG
         cmd("sed -i '/CONFIG_RTE_MACHINE/s/^/#/g' %s/config/defconfig_x86_64-native-linuxapp-gcc" % DPDK_DIR)
         cmd('cp -f %s %s' % (DPDK_BASE_CONFIG, DPDK_FINAL_CONFIG))
+
+        enable_libpcap_pmd()
 
         check_kernel_headers()
 
