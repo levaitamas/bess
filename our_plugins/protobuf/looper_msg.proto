@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package bess.pb;
+
+/**
+ * The Looper module records incoming packets and plays them back repeadtedly.
+ *
+ * __Input Gates__: 1
+ * __Output Gates__: 1
+ */
+message LooperArg {
+  uint32 burst = 1; /// The maximum "burst" of packets (ie, the
+		    /// maximum batch size), default: 32.
+}
+/**
+ * The module Looper has a function `set_burst(...)` that allows you to specify
+ * the maximum number of packets to be stored in a single PacketBatch released
+ * by the module.
+ */
+message LooperCommandSetBurstArg {
+  uint32 burst = 1; /// The maximum "burst" of packets (ie, the maximum batch size)
+}
+
+message LooperCommandGetStatusArg {}
+/**
+ * The module Looper has a function `get_status(...)` to obtain
+ * information about the module.
+ */
+message LooperCommandGetStatusResponse {
+  uint32 burst = 1; /// The "burst" of packets (ie, the batch size) on output gate.
+  uint64 num_packets = 2; /// Number of recorded packets.
+}
