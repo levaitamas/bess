@@ -1,5 +1,6 @@
 // Copyright (c) 2017, Vivian Fang.
 // Copyright (c) 2016-2017, Nefeli Networks, Inc.
+// Copyright (c) 2018, Tamás Lévai
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without

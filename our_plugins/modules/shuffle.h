@@ -1,5 +1,6 @@
 // Copyright (c) 2014-2017, The Regents of the University of California.
 // Copyright (c) 2016-2017, Nefeli Networks, Inc.
+// Copyright (c) 2018, Tamás Lévai
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
