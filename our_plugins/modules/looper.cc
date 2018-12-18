@@ -52,13 +52,7 @@ CommandResponse Looper::Init(const bess::pb::LooperArg &arg) {
                           bess::PacketBatch::kMaxBurst);
   }
 
-  if(arg.burst()) {
-    burst_ = arg.burst();
-  }
-  else {
-    burst_ = bess::PacketBatch::kMaxBurst;
-  }
-
+  burst_ = arg.burst() ? arg.burst() : bess::PacketBatch::kMaxBurst;
 
   return CommandSuccess();
 }
@@ -90,9 +84,7 @@ void Looper::ProcessBatch(Context *, bess::PacketBatch *batch) {
 struct task_result Looper::RunTask(Context *ctx, bess::PacketBatch *batch,
                                   void *) {
   if (children_overload_ > 0) {
-    return {
-        .block = true, .packets = 0, .bits = 0,
-    };
+    return {.block = true, .packets = 0, .bits = 0};
   }
 
   if (pkts_.size() == 0) {
@@ -140,12 +132,12 @@ CommandResponse Looper::CommandGetStatus(
 CheckConstraintResult Looper::CheckModuleConstraints() const {
   CheckConstraintResult status = CHECK_OK;
   if (num_active_tasks() - tasks().size() < 1) {  // Assume multi-producer.
-    LOG(ERROR) << "Queue has no producers";
+    LOG(ERROR) << "Looper has no producers";
     status = CHECK_NONFATAL_ERROR;
   }
 
   if (tasks().size() > 1) {  // Assume single consumer.
-    LOG(ERROR) << "More than one consumer for the queue" << name();
+    LOG(ERROR) << "More than one consumer for the looper" << name();
     return CHECK_FATAL_ERROR;
   }
 
