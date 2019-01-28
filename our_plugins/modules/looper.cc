@@ -77,7 +77,7 @@ std::string Looper::GetDesc() const {
 void Looper::ProcessBatch(Context *, bess::PacketBatch *batch) {
   bess::Packet **pkts = batch->pkts();
   for (int i = 0; i < batch->cnt(); i++) {
-    pkts_.push_back(bess::Packet::copy(pkts[i]));
+    pkts_.push_back(pkts[i]);
   }
 }
 
