@@ -59,7 +59,9 @@ def cmd(cmd, quiet=False, shell=False):
     if not quiet:
         quiet = os.getenv('V') is None
 
-    kwargs = {'universal_newlines': True}
+    kwargs = {'universal_newlines': True,
+              'close_fds': False}  # For Python >3.2, default is True
+
     if quiet:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.STDOUT
@@ -322,6 +324,30 @@ def configure_dpdk():
         cmd('rm -f %s' % DPDK_FINAL_CONFIG)
 
 
+def makeflags():
+    """
+    Return flags to pass to (gnu) Make.  We want to send $MAKEFLAGS
+    through if it's set, but annoyingly, we may have to put '-' in
+    front: both "make -n" and "make -w" (aka "make --print-directory")
+    leave $MAKEFLAGS starting without a hyphen.
+
+    If $MAKEFLAGS is not already set, use "-j" with the number of
+    cpus printed by nproc.
+    """
+    # reuse cached value if we have one
+    result = getattr(makeflags, 'result', None)
+    if result is not None:
+        return result
+    # figure out correct value, then cache it
+    result = os.getenv('MAKEFLAGS')
+    if result is None:
+        result = '-j%d' % int(cmd('nproc', quiet=True))
+    elif result != "" and not result.startswith('-'):
+        result = '-%s' % result
+    makeflags.result = result
+    return result
+
+
 def build_dpdk():
     check_essential()
     download_dpdk(quiet=True)
@@ -332,7 +358,9 @@ def build_dpdk():
 
     print('Building DPDK...')
     nproc = int(cmd('nproc', quiet=True))
-    cmd('make -j%d -C %s EXTRA_CFLAGS=%s' % (nproc, DPDK_DIR, DPDK_CFLAGS))
+    cmd('make %s -C %s EXTRA_CFLAGS=%s' % (makeflags(),
+                                           DPDK_DIR,
+                                           DPDK_CFLAGS))
 
 
 def generate_protobuf_files():
@@ -387,10 +415,11 @@ def build_bess():
     generate_protobuf_files()
 
     print('Building BESS daemon...')
+    sys.stdout.flush()
     cmd('bin/bessctl daemon stop 2> /dev/null || true', shell=True)
     cmd('rm -f core/bessd')  # force relink as DPDK might have been rebuilt
     nproc = int(cmd('nproc', quiet=True))
-    cmd('make -C core -j%d' % nproc)
+    cmd('make %s -C core' % makeflags())
 
 
 def build_kmod():
@@ -405,7 +434,7 @@ def build_kmod():
         if not is_kernel_header_installed():
             print('"kernel-headers-%s" is not available. Build may fail.' %
                   kernel_release)
-
+    sys.stdout.flush()
     cmd('sudo -n rmmod bess 2> /dev/null || true', shell=True)
     try:
         cmd('make -C core/kmod')
