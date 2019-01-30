@@ -67,7 +67,7 @@ class Looper : public Module {
   CommandResponse SetBurst(uint32_t burst);
 
   struct std::vector<bess::Packet*> pkts_;
-  uint64_t pkts_position = 0;  // index to begin reading from pkts_
+  uint64_t pkts_idx_ = 0;  // index to begin reading from pkts_
   uint32_t burst_;
 };
 

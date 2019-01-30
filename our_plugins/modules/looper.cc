@@ -96,13 +96,16 @@ struct task_result Looper::RunTask(Context *ctx, bess::PacketBatch *batch,
   const int pkt_overhead = 24;
   const int pkt_size = batch->pkts()[0]->total_len();
 
-  for(size_t i=batch->cnt(); i < burst; i++) {
-    batch->add(bess::Packet::copy(pkts_[(pkts_position + i) % pkts_.size()]));
+  bess::PacketBatch *new_batch = ctx->task->AllocPacketBatch();
+
+  for(size_t i = 0; i < burst; i++) {
+    new_batch->add(bess::Packet::copy(pkts_[(pkts_idx_ + i) % pkts_.size()]));
   }
 
-  pkts_position = (pkts_position + batch->cnt()) % pkts_.size();
+  pkts_idx_ = (pkts_idx_ + new_batch->cnt()) % pkts_.size();
+  batch->clear();
 
-  RunNextModule(ctx, batch);
+  RunNextModule(ctx, new_batch);
 
   return {.block = false,
           .packets = burst,
