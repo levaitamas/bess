@@ -1,0 +1,39 @@
+import tempfile
+import time
+import scapy.all as scapy
+
+
+num_packets = int($NUM_PKTS!'64')
+
+
+tmpfile = tempfile.NamedTemporaryFile()
+
+eth = scapy.Ether(src='02:1e:67:9f:4d:ae', dst='ae:34:2e:16:b8:cd')
+ip = scapy.IP(src='11.11.11.11', dst='2.2.2.2')
+udp = scapy.UDP(sport=5678, dport=6789)
+payloads = ('Last_pkt%d' % i for i in range(num_packets))
+pkts = [eth/ip/udp/payload for payload in payloads]
+
+scapy.wrpcap(tmpfile.name, pkts)
+
+pcap_files = 'rx_pcap=%s,tx_pcap=/dev/null' % tmpfile.name
+
+try:
+    my_vhost = PMDPort(name='my_vhost', vdev='eth_pcap0,%s' % pcap_files)
+except:
+    my_vhost = PMDPort(name='my_vhost', vdev='net_pcap0,%s' % pcap_files)
+
+PortInc(port=my_vhost) -> l::Last() -> Sink()
+
+bess.resume_all()
+time.sleep(2)
+bess.pause_all()
+
+ret = l.get_last()
+print("diff: {:,} [ns]".format(ret.last - ret.first))
+
+bess.resume_all()
+l.reset() # No need to bess.pause_all()
+bess.pause_all()
+ret = l.get_last()
+print("diff: {:,} [ns]".format(ret.last - ret.first))
