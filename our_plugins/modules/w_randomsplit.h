@@ -32,9 +32,9 @@
 #ifndef BESS_MODULES_WEIGHTED_RANDOM_SPLIT_H_
 #define BESS_MODULES_WEIGHTED_RANDOM_SPLIT_H_
 
-#include "vose_alias.h"
 #include "../module.h"
 #include "../utils/random.h"
+#include "../utils/vose_alias.h"
 #include "pb/weighted_randomsplit_msg.pb.h"
 
 // Maximum number of output gates to allow.
