@@ -34,7 +34,7 @@
 
 const Commands FractionalBuffer::cmds = {
   {"set_size", "FractionalBufferCommandSetSizeArg",
-   MODULE_CMD_FUNC(&FractionalBuffer::CommandSetSize), Command::THREAD_UNSAFE},
+   MODULE_CMD_FUNC(&FractionalBuffer::CommandSetSize), Command::THREAD_SAFE},
   {"get_size", "FractionalBufferCommandGetSizeArg",
    MODULE_CMD_FUNC(&FractionalBuffer::CommandGetSize), Command::THREAD_SAFE}};
 
