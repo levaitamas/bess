@@ -214,8 +214,8 @@ CommandResponse Queue::CommandSetBurst(
 }
 
 CommandResponse Queue::SetSize(uint64_t size) {
-  if (size < 4 || size > 16384000) {
-    return CommandFailure(EINVAL, "must be in [4, 16384000]");
+  if (size < 4 || size > 67108864) {
+    return CommandFailure(EINVAL, "must be in [4, 67108864]");
   }
 
   if (size & (size - 1)) {
