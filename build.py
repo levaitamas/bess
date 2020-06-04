@@ -89,16 +89,14 @@ BESS_DIR = os.path.dirname(os.path.abspath(__file__))
 DEPS_DIR = '%s/deps' % BESS_DIR
 
 DPDK_URL = 'https://fast.dpdk.org/rel'
-DPDK_VER = 'dpdk-17.11'
+DPDK_VER = 'dpdk-19.11.1'
 DPDK_TARGET = 'x86_64-native-linuxapp-gcc'
 
 kernel_release = cmd('uname -r', quiet=True).strip()
 
 DPDK_DIR = '%s/%s' % (DEPS_DIR, DPDK_VER)
 DPDK_CFLAGS = '"-g -w -fPIC"'
-DPDK_ORIG_CONFIG = '%s/config/common_linuxapp' % DPDK_DIR
-DPDK_BASE_CONFIG = '%s/%s_common_linuxapp' % (DEPS_DIR, DPDK_VER)
-DPDK_FINAL_CONFIG = '%s/%s_common_linuxapp_final' % (DEPS_DIR, DPDK_VER)
+DPDK_CONFIG = '%s/build/.config' % DPDK_DIR
 
 extra_libs = set()
 cxx_flags = []
@@ -199,11 +197,16 @@ def set_config(filename, config, new_value):
     with open(filename) as fp:
         lines = fp.readlines()
 
+    found = False
     with open(filename, 'w') as fp:
         for line in lines:
             if line.startswith(config + '='):
+                found = True
                 line = '%s=%s\n' % (config, new_value)
             fp.write(line)
+
+    assert found, '"%s" is not found in %s' % (config, filename)
+    print('  %s: %s=%s' % (filename, config, new_value))
 
 
 def is_kernel_header_installed():
@@ -214,10 +217,10 @@ def check_kernel_headers():
     # If kernel header is not available, do not attempt to build
     # any components that require kernel.
     if not is_kernel_header_installed():
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_EAL_IGB_UIO', 'n')
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_KNI_KMOD', 'n')
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_LIBRTE_KNI', 'n')
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_LIBRTE_PMD_KNI', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_EAL_IGB_UIO', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_KNI_KMOD', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_LIBRTE_KNI', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_LIBRTE_PMD_KNI', 'n')
 
 
 def check_bnx():
@@ -225,7 +228,7 @@ def check_bnx():
         extra_libs.add('z')
     else:
         print(' - "zlib1g-dev" is not available. Disabling BNX2X PMD...')
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_LIBRTE_BNX2X_PMD', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_LIBRTE_BNX2X_PMD', 'n')
 
 
 def check_mlx():
@@ -241,8 +244,8 @@ def check_mlx():
             print('   NOTE: "libibverbs-dev" does exist, but it does not '
                   'work with MLX PMDs. Instead download OFED from '
                   'http://www.melloanox.com')
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_LIBRTE_MLX4_PMD', 'n')
-        set_config(DPDK_FINAL_CONFIG, 'CONFIG_RTE_LIBRTE_MLX5_PMD', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_LIBRTE_MLX4_PMD', 'n')
+        set_config(DPDK_CONFIG, 'CONFIG_RTE_LIBRTE_MLX5_PMD', 'n')
 
 
 def enable_libpcap_pmd():
@@ -261,8 +264,7 @@ def enable_libpcap_pmd():
 
 def generate_dpdk_extra_mk():
     with open('core/extra.dpdk.mk', 'w') as fp:
-        fp.write(
-            'LIBS += %s\n' % ' '.join(map(lambda lib: '-l' + lib, extra_libs)))
+        fp.write('LIBS += %s\n' % ' '.join(['-l' + lib for lib in extra_libs]))
 
 
 def find_current_plugins():
@@ -304,24 +306,17 @@ def download_dpdk(quiet=False):
 
 
 def configure_dpdk():
-    try:
-        print('Configuring DPDK...')
-        # override RTE_MACHINE with the one in DPDK_BASE_CONFIG
-        cmd("sed -i '/CONFIG_RTE_MACHINE/s/^/#/g' %s/config/defconfig_x86_64-native-linuxapp-gcc" % DPDK_DIR)
-        cmd('cp -f %s %s' % (DPDK_BASE_CONFIG, DPDK_FINAL_CONFIG))
+    print('Configuring DPDK...')
+    cmd('make -C %s config T=%s' % (DPDK_DIR, DPDK_TARGET))
 
-        enable_libpcap_pmd()
+    check_kernel_headers()
+    check_mlx()
+    generate_dpdk_extra_mk()
 
-        check_kernel_headers()
-
-        check_mlx()
-
-        generate_dpdk_extra_mk()
-
-        cmd('cp -f %s %s' % (DPDK_FINAL_CONFIG, DPDK_ORIG_CONFIG))
-        cmd('make -C %s config T=%s' % (DPDK_DIR, DPDK_TARGET))
-    finally:
-        cmd('rm -f %s' % DPDK_FINAL_CONFIG)
+    arch = os.getenv('CPU')
+    if arch:
+        print(' - Building DPDK with -march=%s' % arch)
+        set_config(DPDK_CONFIG, "CONFIG_RTE_MACHINE", arch)
 
 
 def makeflags():
@@ -331,7 +326,7 @@ def makeflags():
     front: both "make -n" and "make -w" (aka "make --print-directory")
     leave $MAKEFLAGS starting without a hyphen.
 
-    If $MAKEFLAGS is not already set, use "-j" with the number of
+    If $MAKEFLAGS is not already set, use "-j" and "-l" with the number of
     cpus printed by nproc.
     """
     # reuse cached value if we have one
@@ -356,11 +351,15 @@ def build_dpdk():
     if not os.path.exists('%s/build' % DPDK_DIR):
         configure_dpdk()
 
+    for f in glob.glob('%s/*.patch' % DEPS_DIR):
+        print('Applying patch %s' % f)
+        cmd('patch -d %s -N -p1 < %s || true' % (DPDK_DIR, f), shell=True)
+
     print('Building DPDK...')
     nproc = int(cmd('nproc', quiet=True))
-    cmd('make %s -C %s EXTRA_CFLAGS=%s' % (makeflags(),
-                                           DPDK_DIR,
-                                           DPDK_CFLAGS))
+    cmd('make -C %s EXTRA_CFLAGS=%s %s' % (DPDK_DIR,
+                                           DPDK_CFLAGS,
+                                           makeflags()))
 
 
 def generate_protobuf_files():
@@ -418,8 +417,7 @@ def build_bess():
     sys.stdout.flush()
     cmd('bin/bessctl daemon stop 2> /dev/null || true', shell=True)
     cmd('rm -f core/bessd')  # force relink as DPDK might have been rebuilt
-    nproc = int(cmd('nproc', quiet=True))
-    cmd('make %s -C core' % makeflags())
+    cmd('make -C core bessd modules all_test %s' % makeflags())
 
 
 def build_kmod():
@@ -554,6 +552,8 @@ def main():
 
     if args.benchmark_path:
         update_benchmark_path(args.benchmark_path[0])
+    if not os.path.exists(DEPS_DIR):
+        os.makedirs(DEPS_DIR)
 
     # TODO(torek): only update if needed
     generate_extra_mk()
