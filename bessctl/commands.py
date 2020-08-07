@@ -272,7 +272,7 @@ def get_var_attrs(cli, var_token, partial_word):
                 pass
 
         elif var_token == '[MODULE]':
-            var_type = 'optional_name'
+            var_type = 'name'
             var_desc = 'name of an existing module instance (* means all)'
             var_candidates = ['*']
             try:
@@ -324,7 +324,7 @@ def get_var_attrs(cli, var_token, partial_word):
                 pass
 
         elif var_token == 'TC...':
-            var_type = 'tcname+'
+            var_type = 'name+'
             var_desc = 'one or more traffic class names'
             try:
                 var_candidates = [getattr(c, 'class').name
@@ -466,7 +466,7 @@ def get_var_attrs(cli, var_token, partial_word):
 # You can assume that 'line == head + tail'
 def split_var(cli, var_type, line):
     if var_type in [
-        'host', 'name', 'optional_name', 'gate', 'confname', 'filename',
+        'host', 'name', 'gate', 'confname', 'filename',
             'endis', 'int', 'socket', 'pause_workers', 'dir']:
         pos = line.find(' ')
         if pos == -1:
@@ -476,7 +476,7 @@ def split_var(cli, var_type, line):
             head = line[:pos]
             tail = line[pos:]
 
-    elif var_type in ['wid+', 'name+', 'tcname+', 'map', 'pyobj', 'opts']:
+    elif var_type in ['wid+', 'name+', 'map', 'pyobj', 'opts']:
         head = line
         tail = ''
 
@@ -532,12 +532,8 @@ def bind_var(cli, var_type, line):
                 '"host" must be a valid DNS name or IPv4 address')
 
     elif var_type == 'name':
-        if re.match(r'^[_a-zA-Z][\w]*$', val) is None:
-            raise cli.BindError('"name" must be [_a-zA-Z][_a-zA-Z0-9]*')
-
-    elif var_type == 'optional_name':
-        if re.match(r'^(\*|[_a-zA-Z][\w]*)$', val) is None:
-            raise cli.BindError('"name" must be "*" or [_a-zA-Z][_a-zA-Z0-9]*')
+        if re.match(r'^[\S]*$', val) is None:
+            raise cli.BindError('"name" must not contain whitespaces')
 
     elif var_type == 'gate':
         if head.isdigit():
@@ -551,12 +547,8 @@ def bind_var(cli, var_type, line):
         else:
             raise cli.BindError('"socket" must be a positive number')
 
-    elif var_type in ('name+', 'tcname+'):
-        regexp = r'^[_a-zA-Z][\w]*$' if var_type == 'name+' else r'^!?[_a-zA-Z][\w:]*$'
+    elif var_type == 'name+':
         val = sorted(list(set(head.split())))  # collect unique items
-        for name in val:
-            if re.match(regexp, name) is None:
-                raise cli.BindError('"name" must be [_a-zA-Z][_a-zA-Z0-9]*')
 
     elif var_type == 'confname':
         if val.find('\0') >= 0:
@@ -1364,7 +1356,8 @@ def _draw_pipeline(cli, field, units, last_stats=None, graph_args=[]):
         f = subprocess.Popen('graph-easy ' + ' '.join(graph_args), shell=True,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE,
+                             universal_newlines=True)
 
         for m in modules:
             print('[%s]' % node_labels[m.name], file=f.stdin)
@@ -1789,8 +1782,8 @@ def _monitor_ports(cli, *ports):
         else:
             out_mbps = 0.
 
-        data = (inc_mbps, delta.inc_packets / 1e6, long(delta.inc_dropped), out_mbps, delta.out_packets / 1e6,
-                long(delta.out_dropped))
+        data = (inc_mbps, delta.inc_packets / 1e6, int(delta.inc_dropped), out_mbps, delta.out_packets / 1e6,
+                int(delta.out_dropped))
         cli.fout.write('{:<20}{:>14.1f}{:>10.3f}{:>10d}        {:>14.1f}{:>10.3f}{:>10d}\n'.format(port, *data))
         if csv_f is not None:
             csv_f.write('{},{},{}\n'.format(time.strftime('%X'), port, ','.join(map(lambda x: '{:.3f}'.format(x), data))))
@@ -1905,7 +1898,7 @@ def _monitor_tcs(cli, *tcs):
         else:
             cpp = 0.
 
-        data = (delta.cycles / 1e6, long(delta.count), delta.packets / 1e6, delta.bits / 1e6, ppb, cpp)
+        data = (delta.cycles / 1e6, int(delta.count), delta.packets / 1e6, delta.bits / 1e6, ppb, cpp)
         fmt = '{:<%d}{:>12.3f}{:>12d}{:>12.3f}{:>12.3f}{:>12.3f}{:>12.3f}\n' % (name_len,)
         cli.fout.write(fmt.format(tc, *data))
         if csv_f is not None:
