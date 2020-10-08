@@ -311,6 +311,7 @@ def configure_dpdk():
 
     check_kernel_headers()
     check_mlx()
+    set_config(DPDK_CONFIG, 'CONFIG_RTE_LIBRTE_PMD_PCAP', 'y')
     generate_dpdk_extra_mk()
 
     arch = os.getenv('CPU')
